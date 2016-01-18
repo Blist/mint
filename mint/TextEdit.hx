@@ -7,6 +7,7 @@ import mint.types.Types;
 import mint.core.Signal;
 import mint.types.Types.Helper;
 import mint.core.Macros.*;
+import luxe.Color;
 
 using mint.core.unifill.Unifill;
 
@@ -18,6 +19,7 @@ typedef TextEditOptions = {
 
         /** The default text value */
     @:optional var text: String;
+    @:optional var placeholder: String;
         /** An override display character (like * for a password entry) */
     @:optional var display_char: String;
         /** The text size of the text for the rendering to use */
@@ -38,6 +40,7 @@ typedef TextEditOptions = {
 class TextEdit extends Control {
 
     public var label : Label;
+    public var placeholder : Label;
     public var filter : String->String->String->Bool;
     @:isVar public var index (default, null) : Int = 0;
     public var text (get, set): String;
@@ -46,7 +49,7 @@ class TextEdit extends Control {
 
         /** Emitted whenever the index is changed. */
     public var onchangeindex: Signal<Int->Void>;
-        /** Emitted whenever the text or display text is changed. 
+        /** Emitted whenever the text or display text is changed.
             `text:String, display_text:String, from_typing:Bool`  */
     public var onchange: Signal<String->String->Bool->Void>;
 
@@ -71,8 +74,9 @@ class TextEdit extends Control {
         onchange = new Signal();
 
         filter = def(options.filter, null);
-
-        def(options.text, 'mint.TextEdit');
+        def(options.text, "");
+        def(options.placeholder, 'mint.TextEdit');
+        //def(options.text, 'mint.TextEdit');
         def(options.text_size, options.h * 0.8);
 
         label = new Label({
@@ -84,10 +88,27 @@ class TextEdit extends Control {
             align_vertical: TextAlign.center,
             options: options.options.label,
             name : name + '.label',
-            mouse_input: false,
-            depth: options.depth + 0.001,
+            mouse_input: options.mouse_input,
+            depth: options.depth + 0.002,
             internal_visible: options.visible
         });
+
+        var placeholder_default = {color: new Color(1,1,1,0.5)};
+
+        placeholder = new Label({
+            parent : this,
+            x: 2, y: 0, w: w, h: h,
+            text: options.placeholder,
+            text_size: options.text_size,
+            align: TextAlign.left,
+            align_vertical: TextAlign.center,
+            options: (options.options.placeholder != null) ? options.options.placeholder : placeholder_default,
+            name : name + '.label',
+            mouse_input: options.mouse_input,
+            depth: options.depth + 0.001,
+            internal_visible: (options.text == "") ? true : false
+        });
+
 
         edit = label.text;
         index = edit.uLength();
@@ -97,7 +118,7 @@ class TextEdit extends Control {
         if(options.display_char != null) {
             display_char = options.display_char;
         }
-        
+
         refresh(edit, false);
 
         oncreate.emit();
@@ -117,11 +138,14 @@ class TextEdit extends Control {
     } //onmousedown
 
     override function unfocus() {
-        
+
         super.unfocus();
 
         composition = '';
         composition_start = composition_length = 0;
+        if (label.text == "" && placeholder.visible == false) {
+            placeholder.visible = true;
+        }
 
     } //unfocus
 
@@ -185,7 +209,6 @@ class TextEdit extends Control {
     } //onkeydown
 
     inline function refresh(str:String, _from_typing:Bool=true, _emit:Bool=true) {
-
         edit = str;
 
         if(display_char != null) {
@@ -197,6 +220,11 @@ class TextEdit extends Control {
         }
 
         label.text = display;
+        if (label.text != "" && placeholder.visible == true) {
+            placeholder.visible = false;
+        } else if (label.text == "" && placeholder.visible == false) {
+            placeholder.visible = true;
+        }
         update_cur();
 
         if(_emit) {
